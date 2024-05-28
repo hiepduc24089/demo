@@ -2,10 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Payment;
-use App\Models\PaymentProduct;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Stripe\Stripe;
 use Stripe\Charge;
 
@@ -24,44 +21,26 @@ class PaymentController extends Controller
      */
     public function checkout(Request $request)
 {
-    if (session('customer_id') === null) {
-        return back()->withErrors(['error' => 'Vui lòng đăng nhập trước khi thanh toán']);
-    }
+    // Set your Stripe API key
+    Stripe::setApiKey('your_stripe_secret_key');
 
-    try {
-        $orderId = Str::random(6);
-        $customer_id = session('customer_id');
-        $shipping_address = $request->shipping_address;
-        $shipping_notes = $request->shipping_notes;
+    // Your checkout logic here
 
-        $cartItems = $request->cart;
-
-        if($cartItems === null){
-            return back()->withErrors(['error' => 'Vui lòng chọn mua sản phẩm.']);
-        }
-
-        foreach ($cartItems as $item) {
-            PaymentProduct::create([
-                'product_name' => $item['product_name'],
-                'product_price' => $item['product_price'],
-                'product_quantity' => $item['product_qty'],
-                'product_size' => $item['product_size'],
-                'order_id' => $orderId,
-                'product_image' => $item['product_image']
+        try {
+            // Charge the customer's card
+            $charge = Charge::create([
+                'amount' => 1000, // Amount in cents
+                'currency' => 'usd',
+                'source' => $request->stripeToken,
+                'description' => 'Example charge',
+                'receipt_email' => $request->input('shipping_email'),
             ]);
-        }
 
-        Payment::create([
-            'customer_id' => $customer_id,
-            'address' => $shipping_address,
-            'notes' => $shipping_notes,
-            'payment_products_id' => $orderId,
-            'total_cost' => $request->total_cost,
-        ]);
+            // Payment successful, handle further processing
+            // For example, save order to database, send confirmation email, etc.
 
-        session()->forget('cart');
+            return redirect()->route('checkout')->with('success', 'Payment successful! Thank you for your purchase.');
 
-        return redirect()->route('checkout')->with('success', 'Thanh toán thành công. Cảm ơn vì đã mua hàng.');
 
         } catch (\Exception $e) {
             // Payment failed
